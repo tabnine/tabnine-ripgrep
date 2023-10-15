@@ -1,7 +1,7 @@
 use crate::dir::IgnoreBuilder;
 use std::path::Path;
 
-fn is_ignored(path: &Path) -> bool {
+pub fn is_ignored(path: &Path) -> bool {
     let (ignore, _e) = IgnoreBuilder::new().build().add_parents(path);
     let mut cur_ig = ignore.clone();
     for ancestor in path.ancestors() {

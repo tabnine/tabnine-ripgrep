@@ -1,6 +1,8 @@
+//! Exposes the `is_ignored` API to determine whether a path is ignored.
 use crate::dir::IgnoreBuilder;
 use std::path::Path;
 
+/// Determines whether the given path is ignored.
 pub fn is_ignored(path: &Path) -> bool {
     let (ignore, _e) = IgnoreBuilder::new().build().add_parents(path);
     let mut cur_ig = ignore.clone();

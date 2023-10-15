@@ -56,6 +56,7 @@ pub use crate::walk::{
 mod default_types;
 mod dir;
 pub mod gitignore;
+mod is_ignored;
 pub mod overrides;
 mod pathutil;
 pub mod types;

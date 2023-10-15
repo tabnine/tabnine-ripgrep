@@ -44,31 +44,20 @@ mod tests {
         wfile(td.path().join("foo/.ignore"), "**/*foo.txt");
         wfile(td.path().join("foo/bar/baz/a_foo.txt"), "something");
 
-        assert!(is_path_ignored(
-            &td.path().join("foo/bar/baz/a_foo.txt")
-        ));
-        assert!(!is_path_ignored(
-            &td.path().join("foo/bar/baz/a_foo_1.txt")
-        ));
+        assert!(is_path_ignored(&td.path().join("foo/bar/baz/a_foo.txt")));
+        assert!(!is_path_ignored(&td.path().join("foo/bar/baz/a_foo_1.txt")));
     }
 
     #[test]
     fn ignore_exclude() {
         let td = TempDir::new().unwrap();
         mkdirp(td.path().join("foo/bar/baz"));
-        wfile(
-            td.path().join("foo/.ignore"),
-            "**/*foo.txt\n!**/a_foo.txt",
-        );
+        wfile(td.path().join("foo/.ignore"), "**/*foo.txt\n!**/a_foo.txt");
         wfile(td.path().join("foo/bar/baz/a_foo.txt"), "");
         wfile(td.path().join("foo/bar/baz/b_foo.txt"), "");
 
-        assert!(!is_path_ignored(
-            &td.path().join("foo/bar/baz/a_foo.txt")
-        ));
-        assert!(is_path_ignored(
-            &td.path().join("foo/bar/baz/b_foo.txt")
-        ));
+        assert!(!is_path_ignored(&td.path().join("foo/bar/baz/a_foo.txt")));
+        assert!(is_path_ignored(&td.path().join("foo/bar/baz/b_foo.txt")));
     }
 
     #[test]
@@ -91,19 +80,12 @@ mod tests {
         let td = TempDir::new().unwrap();
         mkdirp(td.path().join("foo/bar/baz"));
         mkdirp(td.path().join("foo/.git"));
-        wfile(
-            td.path().join("foo/.gitignore"),
-            "**/*foo.txt\n!**/a_foo.txt",
-        );
+        wfile(td.path().join("foo/.gitignore"), "**/*foo.txt\n!**/a_foo.txt");
         wfile(td.path().join("foo/bar/baz/a_foo.txt"), "");
         wfile(td.path().join("foo/bar/baz/b_foo.txt"), "");
 
-        assert!(!is_path_ignored(
-            &td.path().join("foo/bar/baz/a_foo.txt")
-        ));
-        assert!(is_path_ignored(
-            &td.path().join("foo/bar/baz/b_foo.txt")
-        ));
+        assert!(!is_path_ignored(&td.path().join("foo/bar/baz/a_foo.txt")));
+        assert!(is_path_ignored(&td.path().join("foo/bar/baz/b_foo.txt")));
     }
 
     #[test]
@@ -118,9 +100,7 @@ mod tests {
         wfile(td.path().join("foo/bar/baz/zibi.txt"), "");
         wfile(td.path().join("foo/b_foo.txt"), "");
 
-        assert!(is_path_ignored(
-            &td.path().join("foo/bar/baz/a_foo.txt")
-        ));
+        assert!(is_path_ignored(&td.path().join("foo/bar/baz/a_foo.txt")));
         assert!(is_path_ignored(&td.path().join("foo/bar/baz/zibi.txt")));
         assert!(!is_path_ignored(&td.path().join("foo/b_foo.txt")));
     }

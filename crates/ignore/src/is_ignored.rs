@@ -110,7 +110,7 @@ mod tests {
     }
 
     #[test]
-    fn multiple_ignores_should_affect_only_paths_below_them() {
+    fn should_resolve_ignore_rules_correctly() {
         let td = TempDir::new().unwrap();
         mkdirp(td.path().join("foo/.git"));
         mkdirp(td.path().join("foo/bar/baz"));

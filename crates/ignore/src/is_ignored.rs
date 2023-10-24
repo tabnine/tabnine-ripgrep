@@ -9,16 +9,20 @@ use std::path::Path;
 ///
 /// NOTE: This API ignores any errors encountered while parsing the ignore files.
 pub fn is_path_ignored(path: &Path) -> bool {
-    let (ignore, _e) = IgnoreBuilder::new().build().add_parents(path);
-    let mut cur_ig = ignore.clone();
-    for ancestor in path.ancestors() {
+    let ig_root = IgnoreBuilder::new().build();
+    let mut cur_ig = ig_root.clone();
+    let ancestors = path.ancestors().skip(1).collect::<Vec<&Path>>();
+    for ancestor in ancestors.iter().rev() {
+        let ig = ig_root.add_parents(ancestor).0;
+
         if cur_ig.matched(ancestor, ancestor.is_dir()).is_ignore() {
             return true;
         }
-        let (ig, _e) = cur_ig.add_child(ancestor);
-        cur_ig = ig;
+        let (igtmp, _e) = ig.add_child(ancestor);
+
+        cur_ig = igtmp;
     }
-    false
+    cur_ig.matched(path, path.is_dir()).is_ignore()
 }
 
 #[cfg(test)]
@@ -67,7 +71,7 @@ mod tests {
         mkdirp(td.path().join("zibi"));
         mkdirp(td.path().join(".git"));
 
-        wfile(td.path().join(".ignore"), "bar");
+        wfile(td.path().join(".gitignore"), "bar");
         wfile(td.path().join("bar/a.txt"), "");
         wfile(td.path().join("zibi/a.txt"), "");
 

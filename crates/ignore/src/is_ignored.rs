@@ -108,4 +108,21 @@ mod tests {
         assert!(is_path_ignored(&td.path().join("foo/bar/baz/zibi.txt")));
         assert!(!is_path_ignored(&td.path().join("foo/b_foo.txt")));
     }
+
+    #[test]
+    fn multiple_ignores_should_affect_only_paths_below_them() {
+        let td = TempDir::new().unwrap();
+        mkdirp(td.path().join("foo/.git"));
+        mkdirp(td.path().join("foo/bar/baz"));
+
+        wfile(td.path().join("foo/.gitignore"), "/bar.txt");
+
+        wfile(td.path().join("foo/bar.txt"), "");
+        wfile(td.path().join("foo/bar/baz/bar.txt"), "");
+        wfile(td.path().join("foo/bar/baz/zibi.txt"), "");
+
+        assert!(is_path_ignored(&td.path().join("foo/bar.txt")));
+        assert!(!is_path_ignored(&td.path().join("foo/bar/baz/bar.txt")));
+        assert!(!is_path_ignored(&td.path().join("foo/bar/baz/zibi.txt")));
+    }
 }

@@ -53,15 +53,22 @@ impl GitignoreCache {
             return false;
         };
 
-        return result.matched(path, path.is_dir()).is_ignore();
+        let ancestors = path.ancestors().collect::<Vec<&Path>>();
+        for ancestor in ancestors.iter().rev() {
+            if result.matched(ancestor, ancestor.is_dir()).is_ignore() {
+                return true;
+            }
+        }
+
+        false
     }
 
     fn get_ignore(&mut self, path: &Path) -> Option<&Ignore> {
         let parent = Self::find_parent_path_with_ignore(path)?;
-        match self.ignores.entry(parent) {
+        match self.ignores.entry(parent.clone()) {
             Entry::Occupied(e) => Some(e.into_mut()),
             Entry::Vacant(e) => {
-                let ig = Self::build_ignore_for_path(path);
+                let ig = Self::build_ignore_for_path(&parent);
                 Some(e.insert(ig))
             }
         }

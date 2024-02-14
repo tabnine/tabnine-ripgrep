@@ -1,8 +1,10 @@
 //! `is_ignored` module provides an API for applying the ignore rules to a
 //! specific path, rather than to all paths in a directory tree.
 
-use crate::dir::IgnoreBuilder;
-use std::path::Path;
+use std::collections::hash_map::Entry;
+use std::collections::HashMap;
+use crate::dir::{Ignore, IgnoreBuilder};
+use std::path::{Path, PathBuf};
 
 /// Determines whether the given path is ignored, respecting all the ignore files
 /// in any parent directories of the given path.
@@ -23,6 +25,84 @@ pub fn is_path_ignored(path: &Path) -> bool {
         cur_ig = igtmp;
     }
     cur_ig.matched(path, path.is_dir()).is_ignore()
+}
+
+/**
+Efficiently cache ignores, so that you do not have to constantly re-create them
+**/
+pub struct GitignoreCache {
+    ignores: HashMap<PathBuf, Ignore>,
+}
+
+impl GitignoreCache {
+    /**
+    Creates a new GitignoreCache.
+    **/
+    pub fn new() -> GitignoreCache {
+        GitignoreCache {
+            ignores: HashMap::new(),
+        }
+    }
+
+    /**
+    Returns whether the given path is ignored, respecting all the ignore files
+    in any parent directories of the given path.
+    **/
+    pub fn is_ignored(&mut self, path: &Path) -> bool {
+        let Some(result) = self.get_ignore(path) else {
+            return false;
+        };
+
+        let ancestors = path.ancestors().collect::<Vec<&Path>>();
+        for ancestor in ancestors.iter().rev() {
+            if result.matched(ancestor, ancestor.is_dir()).is_ignore() {
+                return true;
+            }
+        }
+
+        false
+    }
+
+    fn get_ignore(&mut self, path: &Path) -> Option<&Ignore> {
+        let parent = Self::find_parent_path_with_ignore(path)?;
+        match self.ignores.entry(parent.clone()) {
+            Entry::Occupied(e) => Some(e.into_mut()),
+            Entry::Vacant(e) => {
+                let ig = Self::build_ignore_for_path(&parent);
+                Some(e.insert(ig))
+            }
+        }
+    }
+
+    fn build_ignore_for_path(path: &Path) -> Ignore {
+        let ig_root = IgnoreBuilder::new().build();
+        let mut cur_ig = ig_root.clone();
+        let ancestors = path.ancestors().collect::<Vec<&Path>>();
+        for ancestor in ancestors.iter().rev() {
+            let ig = ig_root.add_parents(ancestor).0;
+
+            let (igtmp, _e) = ig.add_child(ancestor);
+
+            cur_ig = igtmp;
+        }
+        return cur_ig;
+    }
+
+    fn find_parent_path_with_ignore(mut path: &Path) -> Option<PathBuf> {
+        loop {
+            if path.is_dir() {
+                if path.join(".gitignore").exists() {
+                    return Some(path.to_path_buf());
+                }
+
+                if path.join(".ignore").exists() {
+                    return Some(path.to_path_buf());
+                }
+            }
+
+            path = path.parent()?;
+        }
+    }
 }
 
 #[cfg(test)]

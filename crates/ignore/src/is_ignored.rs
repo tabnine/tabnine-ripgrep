@@ -45,6 +45,13 @@ impl GitignoreCache {
     }
 
     /**
+    Returns the number of entries in the cache.
+    **/
+    pub fn cache_size(&self) -> usize {
+        self.ignores.len()
+    }
+
+    /**
     Returns whether the given path is ignored, respecting all the ignore files
     in any parent directories of the given path.
     **/

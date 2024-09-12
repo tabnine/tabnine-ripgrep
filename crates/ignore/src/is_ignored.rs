@@ -10,10 +10,15 @@ use std::path::{Path, PathBuf};
 /// in any parent directories of the given path.
 ///
 /// NOTE: This API ignores any errors encountered while parsing the ignore files.
-pub fn is_path_ignored(path: &Path) -> bool {
-    let ig_root = IgnoreBuilder::new()
-        .add_custom_ignore_filename(".tabnineignore")
-        .build();
+pub fn is_path_ignored(
+    path: &Path,
+    additional_ignore_filename: Option<&str>,
+) -> bool {
+    let mut builder = IgnoreBuilder::new();
+    if let Some(additional_ignore_filename) = additional_ignore_filename {
+        builder.add_custom_ignore_filename(additional_ignore_filename);
+    }
+    let ig_root = builder.build();
     let mut cur_ig = ig_root.clone();
     let ancestors = path.ancestors().skip(1).collect::<Vec<&Path>>();
     for ancestor in ancestors.iter().rev() {
@@ -32,16 +37,17 @@ pub fn is_path_ignored(path: &Path) -> bool {
 /**
 Efficiently cache ignores, so that you do not have to constantly re-create them
 **/
-pub struct GitignoreCache {
+pub struct GitignoreCache<'a> {
     ignores: HashMap<PathBuf, Ignore>,
+    additional_ignore_filename: Option<&'a str>,
 }
 
-impl GitignoreCache {
+impl<'a> GitignoreCache<'a> {
     /**
     Creates a new GitignoreCache.
     **/
-    pub fn new() -> GitignoreCache {
-        GitignoreCache { ignores: HashMap::new() }
+    pub fn new(additional_ignore_filename: Option<&'a str>) -> Self {
+        GitignoreCache { ignores: HashMap::new(), additional_ignore_filename }
     }
 
     /**
@@ -64,7 +70,7 @@ impl GitignoreCache {
     }
 
     fn get_ignore(&mut self, path: &Path) -> Option<&Ignore> {
-        let parent = Self::find_parent_path_with_ignore(path)?;
+        let parent = self.find_parent_path_with_ignore(path)?;
         match self.ignores.entry(parent.clone()) {
             Entry::Occupied(e) => Some(e.into_mut()),
             Entry::Vacant(e) => {
@@ -88,7 +94,10 @@ impl GitignoreCache {
         return cur_ig;
     }
 
-    fn find_parent_path_with_ignore(mut path: &Path) -> Option<PathBuf> {
+    fn find_parent_path_with_ignore(
+        &mut self,
+        mut path: &Path,
+    ) -> Option<PathBuf> {
         loop {
             if path.is_dir() {
                 if path.join(".gitignore").exists() {
@@ -99,8 +108,12 @@ impl GitignoreCache {
                     return Some(path.to_path_buf());
                 }
 
-                if path.join(".tabnineignore").exists() {
-                    return Some(path.to_path_buf());
+                if let Some(additional_ignore_filename) =
+                    self.additional_ignore_filename.as_ref()
+                {
+                    if path.join(additional_ignore_filename).exists() {
+                        return Some(path.to_path_buf());
+                    }
                 }
             }
 
@@ -132,8 +145,14 @@ mod tests {
         wfile(td.path().join("foo/.ignore"), "**/*foo.txt");
         wfile(td.path().join("foo/bar/baz/a_foo.txt"), "something");
 
-        assert!(is_path_ignored(&td.path().join("foo/bar/baz/a_foo.txt")));
-        assert!(!is_path_ignored(&td.path().join("foo/bar/baz/a_foo_1.txt")));
+        assert!(is_path_ignored(
+            &td.path().join("foo/bar/baz/a_foo.txt"),
+            None
+        ));
+        assert!(!is_path_ignored(
+            &td.path().join("foo/bar/baz/a_foo_1.txt"),
+            None
+        ));
     }
     #[test]
     fn ignore_tabnine() {
@@ -146,8 +165,14 @@ mod tests {
         wfile(td.path().join("foo/bar/baz/a_foo.txt"), "something");
         wfile(td.path().join("foo/bar/baz/b_foo.txt"), "");
 
-        assert!(!is_path_ignored(&td.path().join("foo/bar/baz/a_foo.txt")));
-        assert!(is_path_ignored(&td.path().join("foo/bar/baz/b_foo.txt")));
+        assert!(!is_path_ignored(
+            &td.path().join("foo/bar/baz/a_foo.txt"),
+            Some(".tabnineignore")
+        ));
+        assert!(is_path_ignored(
+            &td.path().join("foo/bar/baz/b_foo.txt"),
+            Some(".tabnineignore")
+        ));
     }
 
     #[test]
@@ -158,8 +183,14 @@ mod tests {
         wfile(td.path().join("foo/bar/baz/a_foo.txt"), "");
         wfile(td.path().join("foo/bar/baz/b_foo.txt"), "");
 
-        assert!(!is_path_ignored(&td.path().join("foo/bar/baz/a_foo.txt")));
-        assert!(is_path_ignored(&td.path().join("foo/bar/baz/b_foo.txt")));
+        assert!(!is_path_ignored(
+            &td.path().join("foo/bar/baz/a_foo.txt"),
+            None
+        ));
+        assert!(is_path_ignored(
+            &td.path().join("foo/bar/baz/b_foo.txt"),
+            None
+        ));
     }
 
     #[test]
@@ -173,8 +204,8 @@ mod tests {
         wfile(td.path().join("bar/a.txt"), "");
         wfile(td.path().join("zibi/a.txt"), "");
 
-        assert!(is_path_ignored(&td.path().join("bar/a.txt")));
-        assert!(!is_path_ignored(&td.path().join("zibi/a.txt")));
+        assert!(is_path_ignored(&td.path().join("bar/a.txt"), None));
+        assert!(!is_path_ignored(&td.path().join("zibi/a.txt"), None));
     }
 
     #[test]
@@ -186,8 +217,14 @@ mod tests {
         wfile(td.path().join("foo/bar/baz/a_foo.txt"), "");
         wfile(td.path().join("foo/bar/baz/b_foo.txt"), "");
 
-        assert!(!is_path_ignored(&td.path().join("foo/bar/baz/a_foo.txt")));
-        assert!(is_path_ignored(&td.path().join("foo/bar/baz/b_foo.txt")));
+        assert!(!is_path_ignored(
+            &td.path().join("foo/bar/baz/a_foo.txt"),
+            None
+        ));
+        assert!(is_path_ignored(
+            &td.path().join("foo/bar/baz/b_foo.txt"),
+            None
+        ));
     }
 
     #[test]
@@ -202,9 +239,15 @@ mod tests {
         wfile(td.path().join("foo/bar/baz/zibi.txt"), "");
         wfile(td.path().join("foo/b_foo.txt"), "");
 
-        assert!(is_path_ignored(&td.path().join("foo/bar/baz/a_foo.txt")));
-        assert!(is_path_ignored(&td.path().join("foo/bar/baz/zibi.txt")));
-        assert!(!is_path_ignored(&td.path().join("foo/b_foo.txt")));
+        assert!(is_path_ignored(
+            &td.path().join("foo/bar/baz/a_foo.txt"),
+            None
+        ));
+        assert!(is_path_ignored(
+            &td.path().join("foo/bar/baz/zibi.txt"),
+            None
+        ));
+        assert!(!is_path_ignored(&td.path().join("foo/b_foo.txt"), None));
     }
 
     #[test]
@@ -219,8 +262,14 @@ mod tests {
         wfile(td.path().join("foo/bar/baz/bar.txt"), "");
         wfile(td.path().join("foo/bar/baz/zibi.txt"), "");
 
-        assert!(is_path_ignored(&td.path().join("foo/bar.txt")));
-        assert!(!is_path_ignored(&td.path().join("foo/bar/baz/bar.txt")));
-        assert!(!is_path_ignored(&td.path().join("foo/bar/baz/zibi.txt")));
+        assert!(is_path_ignored(&td.path().join("foo/bar.txt"), None));
+        assert!(!is_path_ignored(
+            &td.path().join("foo/bar/baz/bar.txt"),
+            None
+        ));
+        assert!(!is_path_ignored(
+            &td.path().join("foo/bar/baz/zibi.txt"),
+            None
+        ));
     }
 }

@@ -1,9 +1,9 @@
 //! `is_ignored` module provides an API for applying the ignore rules to a
 //! specific path, rather than to all paths in a directory tree.
 
+use crate::dir::{Ignore, IgnoreBuilder};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
-use crate::dir::{Ignore, IgnoreBuilder};
 use std::path::{Path, PathBuf};
 
 /// Determines whether the given path is ignored, respecting all the ignore files
@@ -11,7 +11,9 @@ use std::path::{Path, PathBuf};
 ///
 /// NOTE: This API ignores any errors encountered while parsing the ignore files.
 pub fn is_path_ignored(path: &Path) -> bool {
-    let ig_root = IgnoreBuilder::new().build();
+    let ig_root = IgnoreBuilder::new()
+        .add_custom_ignore_filename(".tabnineignore")
+        .build();
     let mut cur_ig = ig_root.clone();
     let ancestors = path.ancestors().skip(1).collect::<Vec<&Path>>();
     for ancestor in ancestors.iter().rev() {
@@ -39,9 +41,7 @@ impl GitignoreCache {
     Creates a new GitignoreCache.
     **/
     pub fn new() -> GitignoreCache {
-        GitignoreCache {
-            ignores: HashMap::new(),
-        }
+        GitignoreCache { ignores: HashMap::new() }
     }
 
     /**
@@ -98,6 +98,10 @@ impl GitignoreCache {
                 if path.join(".ignore").exists() {
                     return Some(path.to_path_buf());
                 }
+
+                if path.join(".tabnineignore").exists() {
+                    return Some(path.to_path_buf());
+                }
             }
 
             path = path.parent()?;
@@ -130,6 +134,20 @@ mod tests {
 
         assert!(is_path_ignored(&td.path().join("foo/bar/baz/a_foo.txt")));
         assert!(!is_path_ignored(&td.path().join("foo/bar/baz/a_foo_1.txt")));
+    }
+    #[test]
+    fn ignore_tabnine() {
+        let td = TempDir::new().unwrap();
+        mkdirp(td.path().join("foo/bar/baz"));
+        wfile(
+            td.path().join("foo/.tabnineignore"),
+            "**/*foo.txt\n!**/a_foo.txt",
+        );
+        wfile(td.path().join("foo/bar/baz/a_foo.txt"), "something");
+        wfile(td.path().join("foo/bar/baz/b_foo.txt"), "");
+
+        assert!(!is_path_ignored(&td.path().join("foo/bar/baz/a_foo.txt")));
+        assert!(is_path_ignored(&td.path().join("foo/bar/baz/b_foo.txt")));
     }
 
     #[test]

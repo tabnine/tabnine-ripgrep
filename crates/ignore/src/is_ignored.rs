@@ -74,14 +74,24 @@ impl<'a> GitignoreCache<'a> {
         match self.ignores.entry(parent.clone()) {
             Entry::Occupied(e) => Some(e.into_mut()),
             Entry::Vacant(e) => {
-                let ig = Self::build_ignore_for_path(&parent);
+                let ig = Self::build_ignore_for_path(
+                    &parent,
+                    self.additional_ignore_filename,
+                );
                 Some(e.insert(ig))
             }
         }
     }
 
-    fn build_ignore_for_path(path: &Path) -> Ignore {
-        let ig_root = IgnoreBuilder::new().build();
+    fn build_ignore_for_path(
+        path: &Path,
+        additional_ignore_filename: Option<&str>,
+    ) -> Ignore {
+        let mut builder = IgnoreBuilder::new();
+        if let Some(additional_ignore_filename) = additional_ignore_filename {
+            builder.add_custom_ignore_filename(additional_ignore_filename);
+        }
+        let ig_root = builder.build();
         let mut cur_ig = ig_root.clone();
         let ancestors = path.ancestors().collect::<Vec<&Path>>();
         for ancestor in ancestors.iter().rev() {

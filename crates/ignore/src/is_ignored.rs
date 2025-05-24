@@ -12,11 +12,13 @@ use std::path::{Path, PathBuf};
 /// NOTE: This API ignores any errors encountered while parsing the ignore files.
 pub fn is_path_ignored(
     path: &Path,
-    additional_ignore_filename: Option<&str>,
+    additional_ignore_filenames: Option<&[&str]>,
 ) -> bool {
     let mut builder = IgnoreBuilder::new();
-    if let Some(additional_ignore_filename) = additional_ignore_filename {
-        builder.add_custom_ignore_filename(additional_ignore_filename);
+    if let Some(additional_ignore_filenames) = additional_ignore_filenames {
+        for &filename in additional_ignore_filenames {
+            builder.add_custom_ignore_filename(filename);
+        }
     }
     let ig_root = builder.build();
     let mut cur_ig = ig_root.clone();
@@ -39,15 +41,15 @@ Efficiently cache ignores, so that you do not have to constantly re-create them
 **/
 pub struct GitignoreCache<'a> {
     ignores: HashMap<PathBuf, Ignore>,
-    additional_ignore_filename: Option<&'a str>,
+    additional_ignore_filenames: Option<&'a [&'a str]>,
 }
 
 impl<'a> GitignoreCache<'a> {
     /**
     Creates a new GitignoreCache.
     **/
-    pub fn new(additional_ignore_filename: Option<&'a str>) -> Self {
-        GitignoreCache { ignores: HashMap::new(), additional_ignore_filename }
+    pub fn new(additional_ignore_filenames: Option<&'a [&'a str]>) -> Self {
+        GitignoreCache { ignores: HashMap::new(), additional_ignore_filenames }
     }
 
     /**
@@ -76,7 +78,7 @@ impl<'a> GitignoreCache<'a> {
             Entry::Vacant(e) => {
                 let ig = Self::build_ignore_for_path(
                     &parent,
-                    self.additional_ignore_filename,
+                    self.additional_ignore_filenames,
                 );
                 Some(e.insert(ig))
             }
@@ -85,11 +87,14 @@ impl<'a> GitignoreCache<'a> {
 
     fn build_ignore_for_path(
         path: &Path,
-        additional_ignore_filename: Option<&str>,
+        additional_ignore_filenames: Option<&[&str]>,
     ) -> Ignore {
         let mut builder = IgnoreBuilder::new();
-        if let Some(additional_ignore_filename) = additional_ignore_filename {
-            builder.add_custom_ignore_filename(additional_ignore_filename);
+        if let Some(additional_ignore_filenames) = additional_ignore_filenames
+        {
+            for &filename in additional_ignore_filenames {
+                builder.add_custom_ignore_filename(filename);
+            }
         }
         let ig_root = builder.build();
         let mut cur_ig = ig_root.clone();
@@ -118,11 +123,13 @@ impl<'a> GitignoreCache<'a> {
                     return Some(path.to_path_buf());
                 }
 
-                if let Some(additional_ignore_filename) =
-                    self.additional_ignore_filename.as_ref()
+                if let Some(additional_ignore_filenames) =
+                    self.additional_ignore_filenames
                 {
-                    if path.join(additional_ignore_filename).exists() {
-                        return Some(path.to_path_buf());
+                    for &filename in additional_ignore_filenames {
+                        if path.join(filename).exists() {
+                            return Some(path.to_path_buf());
+                        }
                     }
                 }
             }

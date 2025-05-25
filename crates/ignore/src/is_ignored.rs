@@ -41,14 +41,14 @@ Efficiently cache ignores, so that you do not have to constantly re-create them
 **/
 pub struct GitignoreCache<'a> {
     ignores: HashMap<PathBuf, Ignore>,
-    additional_ignore_filenames: Option<&'a [String]>,
+    additional_ignore_filenames: Option<&'a [&'a str]>,
 }
 
 impl<'a> GitignoreCache<'a> {
     /**
     Creates a new GitignoreCache.
     **/
-    pub fn new(additional_ignore_filenames: Option<&'a [String]>) -> Self {
+    pub fn new(additional_ignore_filenames: Option<&'a [&'a str]>) -> Self {
         GitignoreCache { ignores: HashMap::new(), additional_ignore_filenames }
     }
 
@@ -87,12 +87,12 @@ impl<'a> GitignoreCache<'a> {
 
     fn build_ignore_for_path(
         path: &Path,
-        additional_ignore_filenames: Option<&[String]>,
+        additional_ignore_filenames: Option<&[&str]>,
     ) -> Ignore {
         let mut builder = IgnoreBuilder::new();
         if let Some(additional_ignore_filenames) = additional_ignore_filenames
         {
-            for filename in additional_ignore_filenames {
+            for &filename in additional_ignore_filenames {
                 builder.add_custom_ignore_filename(filename);
             }
         }
@@ -126,7 +126,7 @@ impl<'a> GitignoreCache<'a> {
                 if let Some(additional_ignore_filenames) =
                     self.additional_ignore_filenames
                 {
-                    for filename in additional_ignore_filenames {
+                    for &filename in additional_ignore_filenames {
                         if path.join(filename).exists() {
                             return Some(path.to_path_buf());
                         }

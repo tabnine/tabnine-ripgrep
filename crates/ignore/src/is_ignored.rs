@@ -39,16 +39,16 @@ pub fn is_path_ignored(
 /**
 Efficiently cache ignores, so that you do not have to constantly re-create them
 **/
-pub struct GitignoreCache<'a> {
+pub struct GitignoreCache {
     ignores: HashMap<PathBuf, Ignore>,
-    additional_ignore_filenames: Option<&'a [&'a str]>,
+    additional_ignore_filenames: Option<Vec<String>>,
 }
 
-impl<'a> GitignoreCache<'a> {
+impl GitignoreCache {
     /**
     Creates a new GitignoreCache.
     **/
-    pub fn new(additional_ignore_filenames: Option<&'a [&'a str]>) -> Self {
+    pub fn new(additional_ignore_filenames: Option<Vec<String>>) -> Self {
         GitignoreCache { ignores: HashMap::new(), additional_ignore_filenames }
     }
 
@@ -78,7 +78,7 @@ impl<'a> GitignoreCache<'a> {
             Entry::Vacant(e) => {
                 let ig = Self::build_ignore_for_path(
                     &parent,
-                    self.additional_ignore_filenames,
+                    self.additional_ignore_filenames.as_ref(),
                 );
                 Some(e.insert(ig))
             }
@@ -87,12 +87,12 @@ impl<'a> GitignoreCache<'a> {
 
     fn build_ignore_for_path(
         path: &Path,
-        additional_ignore_filenames: Option<&[&str]>,
+        additional_ignore_filenames: Option<&Vec<String>>,
     ) -> Ignore {
         let mut builder = IgnoreBuilder::new();
         if let Some(additional_ignore_filenames) = additional_ignore_filenames
         {
-            for &filename in additional_ignore_filenames {
+            for filename in additional_ignore_filenames {
                 builder.add_custom_ignore_filename(filename);
             }
         }
@@ -124,9 +124,9 @@ impl<'a> GitignoreCache<'a> {
                 }
 
                 if let Some(additional_ignore_filenames) =
-                    self.additional_ignore_filenames
+                    &self.additional_ignore_filenames
                 {
-                    for &filename in additional_ignore_filenames {
+                    for filename in additional_ignore_filenames {
                         if path.join(filename).exists() {
                             return Some(path.to_path_buf());
                         }
@@ -184,11 +184,11 @@ mod tests {
 
         assert!(!is_path_ignored(
             &td.path().join("foo/bar/baz/a_foo.txt"),
-            Some(".tabnineignore")
+            Some(&[".tabnineignore"])
         ));
         assert!(is_path_ignored(
             &td.path().join("foo/bar/baz/b_foo.txt"),
-            Some(".tabnineignore")
+            Some(&[".tabnineignore"])
         ));
     }
 
